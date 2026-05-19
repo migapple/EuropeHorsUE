@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Europe Hors UE Quiz</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+:root{--bg:#0d1117;--surface:#161b22;--card:#1c2333;--gold:#d4a843;--gold2:#f0c96a;--green:#22c55e;--red:#ef4444;--text:#e6edf3;--muted:#7d8590;--border:#30363d}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+html,body{height:100%;overflow:hidden;background:var(--bg);font-family:Georgia,serif}
+#app{position:fixed;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;background:var(--bg)}
+.header{padding-top:calc(12px + env(safe-area-inset-top));padding-bottom:9px;padding-left:16px;padding-right:16px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:4px}
+.hdr-title{font-size:15px;color:var(--gold);font-weight:bold}
+.hdr-sub{font-size:10px;color:var(--muted);margin-top:2px}
+.score-wrap{display:flex;gap:6px;flex:1;justify-content:center}
+.sbox{text-align:center}
+.snum{font-size:12px;font-weight:bold;line-height:1}
+.slbl{font-size:8px;color:var(--muted);margin-top:1px}
+.hdr-btns{display:flex;gap:5px;align-items:center}
+.hdr-btn{font-size:10px;color:var(--muted);background:none;border:1px solid var(--border);border-radius:10px;padding:4px 7px;cursor:pointer;font-family:Georgia,serif}
+.lang-btn{font-size:16px;background:none;border:none;cursor:pointer;padding:2px}
+.phase-bar{display:flex;background:var(--card);border-bottom:1px solid var(--border);flex-shrink:0}
+.ps{flex:1;padding:7px 4px;text-align:center;font-size:10px;color:var(--muted);border:none;border-bottom:2px solid transparent;line-height:1.4;background:none;cursor:pointer;font-family:Georgia,serif}
+.ps.active{color:var(--gold);border-bottom-color:var(--gold);font-weight:bold}
+.prog-wrap{height:3px;background:var(--border);flex-shrink:0}
+.prog-fill{height:100%;background:var(--gold);transition:width .4s}
+.q-banner{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 16px;flex-shrink:0;min-height:48px;display:flex;align-items:center;justify-content:center}
+.q-text{font-size:14px;color:var(--text);text-align:center;line-height:1.5}
+.q-hl{color:var(--gold2);font-weight:bold}
+.q-ctx{font-size:11px;color:var(--muted);display:block;margin-top:2px}
+.map-wrap{flex:1;position:relative;overflow:hidden}
+#map{width:100%;height:100%}
+.leaflet-container{background:#e8e4dc!important}
+.leaflet-interactive{pointer-events:auto!important}
+.leaflet-overlay-pane svg path{pointer-events:visiblePainted!important}
+.leaflet-control-zoom{display:none}
+.leaflet-control-attribution{font-size:8px;opacity:.2;background:rgba(0,0,0,.6)!important;color:#888!important}
+.fb-bar{background:var(--surface);border-top:1px solid var(--border);padding:11px 14px;padding-bottom:calc(11px + env(safe-area-inset-bottom));flex-shrink:0;text-align:center;font-size:12px;color:var(--muted);min-height:52px;display:flex;align-items:center;justify-content:center;line-height:1.5}
+.fb-bar.ok{color:var(--green)}.fb-bar.ko{color:var(--red)}.fb-bar.hint{color:var(--gold)}
+.pm{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;border:2px solid rgba(255,255,255,.4);box-shadow:0 2px 8px rgba(0,0,0,.5)}
+.pm.idle{background:rgba(30,30,30,.7)}.pm.done{background:rgba(80,80,80,.5)}.pm.ok{background:rgba(34,197,94,.9);border-color:#86efac}.pm.ko{background:rgba(239,68,68,.9);border-color:#fca5a5}
+.load-ov{position:absolute;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:4000;gap:14px}
+.spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--gold);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.load-txt{font-size:13px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <div><div class="hdr-title">🌎 Europe Hors UE Quiz</div><div class="hdr-sub" id="hdr-sub">Pays</div></div>
+    <div class="score-wrap">
+      <div class="sbox"><div class="snum" id="sc1" style="color:var(--green)">0✓ 0✗</div><div class="slbl" id="lb1">Pays</div></div>
+      <div class="sbox"><div class="snum" id="sc2" style="color:var(--gold2)">0✓ 0✗</div><div class="slbl" id="lb2">Capitales</div></div>
+      <div class="sbox"><div class="snum" id="sc3" style="color:#4d908e">0✓ 0✗</div><div class="slbl" id="lb3">Drapeaux</div></div>
+    </div>
+    <div class="hdr-btns">
+      <button class="hdr-btn" onclick="raz()">RAZ</button>
+      <button class="lang-btn" id="lang-btn" onclick="toggleLang()">🇫🇷</button>
+      <button class="lang-btn" onclick="showSettings()">📱</button>
+    </div>
+  </div>
+  <div class="phase-bar">
+    <button class="ps active" id="ps1" onclick="jumpToPhase(1)">🗺<br><span id="ps1l">Pays</span></button>
+    <button class="ps" id="ps2" onclick="jumpToPhase(2)">🏛<br><span id="ps2l">Capitales</span></button>
+    <button class="ps" id="ps3" onclick="jumpToPhase(3)">🏴<br><span id="ps3l">Drapeaux</span></button>
+  </div>
+  <div class="prog-wrap"><div class="prog-fill" id="prog" style="width:0%"></div></div>
+  <div class="q-banner"><div class="q-text" id="q-text">Chargement…</div></div>
+  <div class="map-wrap">
+    <div id="map"></div>
+    <div class="load-ov" id="load-ov"><div class="spinner"></div><div class="load-txt">Chargement…</div></div>
+  </div>
+  <div class="fb-bar hint" id="fb-bar">Tapez sur la bonne zone</div>
+</div>
+<script>
+// ===== DONNÉES 27 PAYS UE =====
+const PAYS = [
+  {code:"AL", fr:"Albanie",          en:"Albania",         cap_fr:"Tirana",       cap_en:"Tirana",       flag:"🇦🇱", lat:41.15, lng:20.17},
+  {code:"AD", fr:"Andorre",          en:"Andorra",         cap_fr:"Andorre",      cap_en:"Andorra",      flag:"🇦🇩", lat:42.55, lng:1.57},
+  {code:"AM", fr:"Armenie",          en:"Armenia",         cap_fr:"Erevan",       cap_en:"Yerevan",      flag:"🇦🇲", lat:40.07, lng:45.04},
+  {code:"AZ", fr:"Azerbaidjan",      en:"Azerbaijan",      cap_fr:"Bakou",        cap_en:"Baku",         flag:"🇦🇿", lat:40.14, lng:47.58},
+  {code:"BY", fr:"Bielorussie",      en:"Belarus",         cap_fr:"Minsk",        cap_en:"Minsk",        flag:"🇧🇾", lat:53.71, lng:27.95},
+  {code:"BA", fr:"Bosnie",           en:"Bosnia",          cap_fr:"Sarajevo",     cap_en:"Sarajevo",     flag:"🇧🇦", lat:43.92, lng:17.68},
+  {code:"GE", fr:"Georgie",          en:"Georgia",         cap_fr:"Tbilissi",     cap_en:"Tbilisi",      flag:"🇬🇪", lat:42.31, lng:43.36},
+  {code:"IS", fr:"Islande",          en:"Iceland",         cap_fr:"Reykjavik",    cap_en:"Reykjavik",    flag:"🇮🇸", lat:64.96, lng:-19.02},
+  {code:"XK", fr:"Kosovo",           en:"Kosovo",          cap_fr:"Pristina",     cap_en:"Pristina",     flag:"🇽🇰", lat:42.60, lng:20.90},
+  {code:"LI", fr:"Liechtenstein",    en:"Liechtenstein",   cap_fr:"Vaduz",        cap_en:"Vaduz",        flag:"🇱🇮", lat:47.14, lng:9.55},
+  {code:"MK", fr:"Macedoine du Nord",en:"North Macedonia", cap_fr:"Skopje",       cap_en:"Skopje",       flag:"🇲🇰", lat:41.61, lng:21.75},
+  {code:"MD", fr:"Moldavie",         en:"Moldova",         cap_fr:"Chisinau",     cap_en:"Chisinau",     flag:"🇲🇩", lat:47.41, lng:28.37},
+  {code:"MC", fr:"Monaco",           en:"Monaco",          cap_fr:"Monaco",       cap_en:"Monaco",       flag:"🇲🇨", lat:43.74, lng:7.41},
+  {code:"ME", fr:"Montenegro",       en:"Montenegro",      cap_fr:"Podgorica",    cap_en:"Podgorica",    flag:"🇲🇪", lat:42.71, lng:19.37},
+  {code:"NO", fr:"Norvege",          en:"Norway",          cap_fr:"Oslo",         cap_en:"Oslo",         flag:"🇳🇴", lat:60.47, lng:8.47},
+  {code:"GB", fr:"Royaume-Uni",      en:"United Kingdom",  cap_fr:"Londres",      cap_en:"London",       flag:"🇬🇧", lat:55.38, lng:-3.44},
+  {code:"RU", fr:"Russie",           en:"Russia",          cap_fr:"Moscou",       cap_en:"Moscow",       flag:"🇷🇺", lat:61.52, lng:55.00},
+  {code:"SM", fr:"Saint-Marin",      en:"San Marino",      cap_fr:"Saint-Marin",  cap_en:"San Marino",   flag:"🇸🇲", lat:43.94, lng:12.46},
+  {code:"RS", fr:"Serbie",           en:"Serbia",          cap_fr:"Belgrade",     cap_en:"Belgrade",     flag:"🇷🇸", lat:44.02, lng:21.01},
+  {code:"CH", fr:"Suisse",           en:"Switzerland",     cap_fr:"Berne",        cap_en:"Bern",         flag:"🇨🇭", lat:46.82, lng:8.23},
+  {code:"TR", fr:"Turquie",          en:"Turkey",          cap_fr:"Ankara",       cap_en:"Ankara",       flag:"🇹🇷", lat:38.96, lng:35.24},
+  {code:"UA", fr:"Ukraine",          en:"Ukraine",         cap_fr:"Kiev",         cap_en:"Kyiv",         flag:"🇺🇦", lat:48.38, lng:31.17},
+];
+
+// Micro-etats : affichés comme marqueurs cliquables au lieu de polygones
+const MICRO = ["AD","LI","MC","SM","XK"];
+
+
+// Couleurs par pays
+const COLORS = {
+  AL:"#e63946",AD:"#457b9d",AM:"#f4a261",AZ:"#2a9d8f",BY:"#e9c46a",
+  BA:"#9b5de5",GE:"#ff595e",IS:"#8ac926",XK:"#4d908e",LI:"#1982c4",
+  MK:"#d4a017",MD:"#6bcb77",MC:"#e76f51",ME:"#e63946",NO:"#457b9d",
+  GB:"#f4a261",RU:"#2a9d8f",SM:"#e9c46a",RS:"#9b5de5",CH:"#ff595e",
+  TR:"#8ac926",UA:"#4d908e",
+};
+
+// ===== STATE =====
+let map, geoData, gLayer=null, markers=[];
+let phase=1, cur=null, answered=false, lang='fr';
+let scores={1:{ok:0,ko:0},2:{ok:0,ko:0},3:{ok:0,ko:0}};
+let used=[], found=new Set(), errors=new Set(), reviewMode=false, reviewPool=[];
+let _touchSX=0, _touchSY=0, _geoClickFn=null;
+
+const T = {
+  pays:     {fr:'Pays',       en:'Countries'},
+  capitales:{fr:'Capitales',  en:'Capitals'},
+  drapeaux: {fr:'Drapeaux',   en:'Flags'},
+  tapPays:  {fr:'Tapez sur le bon pays',      en:'Tap the right country'},
+  tapCap:   {fr:'Tapez sur la bonne capitale',en:'Tap the right capital'},
+  tapFlag:  {fr:'Tapez sur le bon drapeau',   en:'Tap the right flag'},
+  ouPays:   {fr:'Où se trouve',               en:'Where is'},
+  ouCap:    {fr:'Où se trouve la capitale',   en:'Where is the capital'},
+  ouFlag:   {fr:'Quel est le drapeau de',     en:'What is the flag of'},
+};
+const t=k=>T[k][lang];
+const pInfo=code=>PAYS.find(p=>p.code===code);
+const pName=p=>p[lang==='fr'?'fr':'en'];
+const pCap=p=>p[lang==='fr'?'cap_fr':'cap_en'];
+
+// ===== INIT =====
+async function init(){
+  map=L.map('map',{zoomControl:false,dragging:true,scrollWheelZoom:false,doubleClickZoom:false,touchZoom:true,tap:true,tapTolerance:15});
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png',{attribution:'© OpenStreetMap © CARTO',maxZoom:13}).addTo(map);
+  map.setView([54,18],4);
+  initTouch();
+  // Mapping nom GeoJSON -> code ISO (fonctionne avec johan/world.geo.json)
+  const NAME2CODE={
+    "Albania":"AL","Andorra":"AD","Armenia":"AM","Azerbaijan":"AZ",
+    "Belarus":"BY","Bosnia and Herzegovina":"BA","Bosnia":"BA","Georgia":"GE",
+    "Iceland":"IS","Kosovo":"XK","Liechtenstein":"LI","North Macedonia":"MK",
+    "Macedonia":"MK","Moldova":"MD","Monaco":"MC","Montenegro":"ME",
+    "Norway":"NO","United Kingdom":"GB","Russia":"RU","San Marino":"SM",
+    "Serbia":"RS","Switzerland":"CH","Turkey":"TR","Ukraine":"UA"
+  };
+  try{
+    const r=await fetch('https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json');
+    if(!r.ok)throw new Error();
+    const raw=await r.json();
+    const codes=new Set(PAYS.map(p=>p.code));
+    // Log tous les noms pour debug
+    const allNames=raw.features.map(f=>f.properties.name||'').filter(n=>n);
+    console.log('GeoJSON names sample:', allNames.slice(0,10));
+    raw.features=raw.features.filter(f=>{
+      const code=NAME2CODE[f.properties.name||''];
+      if(!code&&codes.has('XX'))console.log('no match:',f.properties.name);
+      return code&&codes.has(code);
+    });
+    raw.features.forEach(f=>{
+      f.properties.code=NAME2CODE[f.properties.name||'']||'';
+    });
+    console.log('Matched features:', raw.features.length, '/ expected:', PAYS.length);
+    if(raw.features.length===0)throw new Error('no features matched');
+    geoData=raw;
+    document.getElementById('load-ov').style.display='none';
+    jumpToPhase(1);
+  }catch(e){
+    // Fallback: essayer avec Natural Earth via unpkg
+    try{
+      const r2=await fetch('https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/ne_110m_admin_0_countries.geojson');
+      if(!r2.ok)throw new Error();
+      const raw2=await r2.json();
+      const codes=new Set(PAYS.map(p=>p.code));
+      raw2.features=raw2.features.filter(f=>{
+        const iso=(f.properties.ISO_A2||'').toUpperCase();
+        return codes.has(iso);
+      });
+      raw2.features.forEach(f=>{
+        f.properties.code=(f.properties.ISO_A2||'').toUpperCase();
+      });
+      if(raw2.features.length===0)throw new Error();
+      geoData=raw2;
+      document.getElementById('load-ov').style.display='none';
+      jumpToPhase(1);
+    }catch(e2){
+      document.getElementById('load-ov').innerHTML='<div style="color:#ef4444;text-align:center;padding:32px">Erreur de chargement.<br>Verifiez votre connexion.</div>';
+    }
+  }
+}
+
+// ===== TOUCH =====
+function initTouch(){
+  const c=map.getContainer();
+  c.addEventListener('touchstart',e=>{if(e.touches.length){_touchSX=e.touches[0].clientX;_touchSY=e.touches[0].clientY;}},{passive:true});
+  c.addEventListener('touchend',e=>{
+    if(!e.changedTouches.length)return;
+    const t=e.changedTouches[0];
+    if(Math.abs(t.clientX-_touchSX)>10||Math.abs(t.clientY-_touchSY)>10)return;
+    const rect=c.getBoundingClientRect();
+    const ll=map.containerPointToLatLng([t.clientX-rect.left,t.clientY-rect.top]);
+    if(!gLayer||!_geoClickFn)return;
+    let hit=false;
+    gLayer.eachLayer(l=>{
+      if(hit||!l.feature)return;
+      try{if(l.getBounds().contains(ll)&&ptInLayer(ll,l)){hit=true;_geoClickFn(l.feature.properties.code);}}catch(e){}
+    });
+  },{passive:true});
+}
+function ptInLayer(ll,l){
+  const g=l.feature.geometry,pt=[ll.lng,ll.lat];
+  const polys=g.type==='MultiPolygon'?g.coordinates:g.type==='Polygon'?[g.coordinates]:[];
+  return polys.some(p=>ptInRing(pt,p[0]));
+}
+function ptInRing(pt,ring){
+  let inside=false;
+  for(let i=0,j=ring.length-1;i<ring.length;j=i++){
+    const xi=ring[i][0],yi=ring[i][1],xj=ring[j][0],yj=ring[j][1];
+    if(((yi>pt[1])!==(yj>pt[1]))&&pt[0]<(xj-xi)*(pt[1]-yi)/(yj-yi)+xi)inside=!inside;
+  }
+  return inside;
+}
+
+// ===== LAYER =====
+function buildLayer(clickFn){
+  if(gLayer){gLayer.remove();gLayer=null;}
+  // Supprimer anciens marqueurs micro
+  if(window._microMarkers){window._microMarkers.forEach(m=>m.remove());window._microMarkers=[];}
+  _geoClickFn=clickFn;
+  // Polygones pays normaux (sans micro-etats)
+  const geoFiltered={type:"FeatureCollection",features:geoData.features.filter(f=>!MICRO.includes(f.properties.code))};
+  gLayer=L.geoJSON(geoFiltered,{
+    style:f=>styleFor(f.properties.code),
+    onEachFeature:(f,l)=>l.on('click',e=>{L.DomEvent.stop(e);clickFn(f.properties.code);})
+  }).addTo(map);
+  // Marqueurs cliquables pour micro-etats
+  window._microMarkers=[];
+  PAYS.filter(p=>MICRO.includes(p.code)).forEach(p=>{
+    const col=COLORS[p.code]||'#888';
+    const isDone=found.has(p.code);
+    const m=L.marker([p.lat,p.lng],{
+      icon:L.divIcon({className:'',
+        html:'<div id="micro-'+p.code+'" style="width:24px;height:24px;border-radius:50%;background:'+col+';border:2px solid #fff;cursor:pointer;opacity:'+(isDone?0.55:1)+';box-shadow:0 2px 6px rgba(0,0,0,.5)"></div>',
+        iconSize:[28,28],iconAnchor:[14,14]}),
+      interactive:true,bubblingMouseEvents:false,zIndexOffset:1000
+    }).addTo(map);
+    m.on('click',e=>{L.DomEvent.stop(e);clickFn(p.code);});
+    m._code=p.code;
+    window._microMarkers.push(m);
+  });
+}
+function styleFor(code){
+  const col=COLORS[code]||'#888';
+  const f=found.has(code);
+  // Mettre à jour marqueur micro si existe
+  const el=document.getElementById('micro-'+code);
+  if(el)el.style.opacity=f?'0.55':'1';
+  return{fillColor:col,fillOpacity:f?.7:.5,color:'#1a1a2e',weight:2,opacity:1};
+}
+function setS(code,s){
+  gLayer&&gLayer.eachLayer(l=>{if(l.feature&&l.feature.properties.code===code)l.setStyle(s);});
+  // Micro-etats : changer couleur du marqueur
+  if(MICRO.includes(code)){
+    const el=document.getElementById('micro-'+code);
+    if(el){
+      if(s.fillColor==='#22c55e')el.style.background='#22c55e';
+      else if(s.fillColor==='#ef4444')el.style.background='#ef4444';
+    }
+  }
+}
+const sOK={fillColor:'#22c55e',fillOpacity:.85,color:'#86efac',weight:3,opacity:1};
+const sKO={fillColor:'#ef4444',fillOpacity:.72,color:'#fca5a5',weight:3,opacity:1};
+
+// ===== PHASE =====
+function jumpToPhase(p){
+  phase=p; used=[]; found=new Set(); errors=new Set(); reviewMode=false; reviewPool=[]; answered=false; clearMarkers();
+  [1,2,3].forEach(n=>document.getElementById('ps'+n).classList.remove('active'));
+  document.getElementById('ps'+p).classList.add('active');
+  updateLangUI();
+  if(p===1){
+    buildLayer(clickPays);
+  } else if(p===2){
+    buildLayer(()=>{}); // layer décoratif, clics sur marqueurs
+    buildCapMarkers();
+  } else {
+    buildLayer(()=>{});
+    buildFlagMarkers();
+  }
+  fitEurope();
+  document.getElementById('prog').style.width='0%';
+  nextQ();
+}
+
+function fitEurope(){map.setView([54,18],4);}
+
+// ===== LANGUE =====
+function toggleLang(){
+  lang=lang==='fr'?'en':'fr';
+  document.getElementById('lang-btn').textContent=lang==='fr'?'🇫🇷':'🇬🇧';
+  updateLangUI();
+  nextQ();
+}
+function updateLangUI(){
+  document.getElementById('hdr-sub').textContent=t(phase===1?'pays':phase===2?'capitales':'drapeaux');
+  document.getElementById('lb1').textContent=t('pays');
+  document.getElementById('lb2').textContent=t('capitales');
+  document.getElementById('lb3').textContent=t('drapeaux');
+  document.getElementById('ps1l').textContent=t('pays');
+  document.getElementById('ps2l').textContent=t('capitales');
+  document.getElementById('ps3l').textContent=t('drapeaux');
+}
+
+// ===== QUESTIONS =====
+function nextQ(){
+  answered=false;
+  const total=PAYS.length;
+  if(used.length>=total && reviewMode===false){
+    if(errors.size>0){
+      reviewMode=true;
+      reviewPool=[...errors];
+      used=[];
+      PAYS.filter(p=>!errors.has(p.code)).forEach(p=>{
+        if(phase===1) gLayer&&gLayer.eachLayer(l=>{if(l.feature&&l.feature.properties.code===p.code)l.setStyle(styleFor(p.code));});
+      });
+      if(phase>1){clearMarkers();phase===2?buildCapMarkers():buildFlagMarkers();}
+      fb('hint', lang==='fr'? errors.size+' pays a revoir...': errors.size+' countries to review...');
+    } else {
+      reviewMode=false; reviewPool=[];
+      used=[]; found=new Set(); errors=new Set();
+      if(phase===1) buildLayer(clickPays);
+      else if(phase===2){buildLayer(()=>{});buildCapMarkers();}
+      else{buildLayer(()=>{});buildFlagMarkers();}
+      fb('hint', lang==='fr'?'Parfait ! Recommencez...':'Perfect! Starting over...');
+    }
+  }
+  if(reviewMode && used.length>=reviewPool.length){
+    if(errors.size>0){
+      reviewPool=[...errors]; used=[];
+      fb('hint', lang==='fr'? errors.size+' pays a revoir...': errors.size+' countries to review...');
+    } else {
+      reviewMode=false; reviewPool=[];
+      used=[]; found=new Set(); errors=new Set();
+      if(phase===1) buildLayer(clickPays);
+      else if(phase===2){buildLayer(()=>{});buildCapMarkers();}
+      else{buildLayer(()=>{});buildFlagMarkers();}
+      fb('hint', lang==='fr'?'Parfait ! Recommencez...':'Perfect! Starting over...');
+    }
+  }
+  const pool = reviewMode
+    ? reviewPool.filter(c=>!used.includes(c)).map(c=>PAYS.find(p=>p.code===c)).filter(Boolean)
+    : PAYS.filter(p=>!used.includes(p.code));
+  if(pool.length===0){used=[];nextQ();return;}
+  cur=pool[Math.floor(Math.random()*pool.length)];
+  used.push(cur.code);
+  document.getElementById('prog').style.width=(used.length/total*100)+'%';
+
+  if(phase===1){
+    qt(t('ouPays')+' <span class="q-hl">'+pName(cur)+'</span> ?');
+    fb('hint',t('tapPays'));
+  } else if(phase===2){
+    qt(t('ouCap')+' : <span class="q-hl">'+pCap(cur)+'</span> ?<span class="q-ctx">'+pName(cur)+'</span>');
+    fb('hint',t('tapCap'));
+    updateCapMarkers();
+  } else {
+    qt(t('ouFlag')+' <span class="q-hl">'+pName(cur)+'</span> ?');
+    fb('hint',t('tapFlag'));
+    updateFlagMarkers();
+  }
+}
+
+// ===== CLICS PAYS =====
+function clickPays(code){
+  if(answered)return; answered=true;
+  if(code===cur.code){
+    setS(code,sOK); found.add(code); errors.delete(code);
+    fb('ok','✓ '+pName(cur)); scores[1].ok++;
+  } else {
+    const cl=pInfo(code);
+    setS(code,sKO); setS(cur.code,sOK); found.add(cur.code); errors.add(cur.code);
+    fb('ko','✗ '+(cl?pName(cl):'?')+' — '+pName(cur)); scores[1].ko++;
+  }
+  document.getElementById('sc1').textContent=scores[1].ok+'✓ '+scores[1].ko+'✗';
+  setTimeout(nextQ,1200);
+}
+
+// ===== MARQUEURS CAPITALES =====
+function buildCapMarkers(){
+  clearMarkers();
+  PAYS.forEach(p=>{
+    const m=L.marker([p.lat,p.lng],{
+      icon:L.divIcon({className:'',html:'<div class="pm idle" id="cm-'+p.code+'">🏛</div>',iconSize:[32,32],iconAnchor:[16,16]}),
+      interactive:true,bubblingMouseEvents:false,zIndexOffset:500
+    }).addTo(map);
+    m.on('click',e=>{L.DomEvent.stop(e);clickCap(p.code);});
+    m._code=p.code; markers.push(m);
+  });
+}
+function updateCapMarkers(){
+  markers.forEach(m=>{
+    const el=document.getElementById('cm-'+m._code);
+    if(el)el.className='pm '+(found.has(m._code)?'done':'idle');
+  });
+}
+function clickCap(code){
+  if(answered)return; answered=true;
+  if(code===cur.code){
+    setMarkerCls('cm-'+code,'ok'); found.add(code); errors.delete(code);
+    fb('ok','✓ '+pCap(cur)+' — '+pName(cur)); scores[2].ok++;
+  } else {
+    const cl=pInfo(code);
+    setMarkerCls('cm-'+code,'ko'); setMarkerCls('cm-'+cur.code,'ok'); found.add(cur.code); errors.add(cur.code);
+    fb('ko','✗ '+(cl?pCap(cl):'?')+' — '+pCap(cur)); scores[2].ko++;
+  }
+  document.getElementById('sc2').textContent=scores[2].ok+'✓ '+scores[2].ko+'✗';
+  setTimeout(nextQ,1200);
+}
+
+// ===== MARQUEURS DRAPEAUX =====
+function buildFlagMarkers(){
+  clearMarkers();
+  PAYS.forEach(p=>{
+    const m=L.marker([p.lat,p.lng],{
+      icon:L.divIcon({className:'',html:'<div class="pm idle" id="fm-'+p.code+'" style="font-size:20px">'+p.flag+'</div>',iconSize:[32,32],iconAnchor:[16,16]}),
+      interactive:true,bubblingMouseEvents:false,zIndexOffset:500
+    }).addTo(map);
+    m.on('click',e=>{L.DomEvent.stop(e);clickFlag(p.code);});
+    m._code=p.code; markers.push(m);
+  });
+}
+function updateFlagMarkers(){
+  markers.forEach(m=>{
+    const el=document.getElementById('fm-'+m._code);
+    if(el){
+      const isDone=found.has(m._code);
+      el.style.opacity=isDone?'0.35':'1';
+      el.className='pm '+(isDone?'done':'idle');
+    }
+  });
+}
+function clickFlag(code){
+  if(answered)return; answered=true;
+  if(code===cur.code){
+    setMarkerCls('fm-'+code,'ok'); found.add(code); errors.delete(code);
+    fb('ok','✓ '+cur.flag+' '+pName(cur)); scores[3].ok++;
+  } else {
+    const cl=pInfo(code);
+    setMarkerCls('fm-'+code,'ko'); setMarkerCls('fm-'+cur.code,'ok'); found.add(cur.code); errors.add(cur.code);
+    fb('ko','✗ '+(cl?cl.flag+' '+pName(cl):'?')+' — '+cur.flag+' '+pName(cur)); scores[3].ko++;
+  }
+  document.getElementById('sc3').textContent=scores[3].ok+'✓ '+scores[3].ko+'✗';
+  setTimeout(nextQ,1200);
+}
+
+// ===== UTILS =====
+function setMarkerCls(id,cls){const el=document.getElementById(id);if(el)el.className='pm '+cls;}
+function clearMarkers(){markers.forEach(m=>m.remove());markers=[];}
+function fb(cls,txt){const el=document.getElementById('fb-bar');el.className='fb-bar '+cls;el.textContent=txt;}
+function qt(html){document.getElementById('q-text').innerHTML=html;}
+function raz(){
+  scores={1:{ok:0,ko:0},2:{ok:0,ko:0},3:{ok:0,ko:0}};
+  errors=new Set(); reviewMode=false; reviewPool=[];
+  ['1','2','3'].forEach(n=>document.getElementById('sc'+n).textContent='0✓ 0✗');
+  jumpToPhase(phase);
+}
+
+// ===== APPS =====
+function showSettings(){
+  const existing=document.getElementById('settings-ov');
+  if(existing){existing.remove();return;}
+  const APPS=[
+    {id:'6763507194',name:'Hotels RoofTop'},{id:'6762618424',name:'Ponts du Monde'},
+    {id:'6763076110',name:'Paquebots Liners'},{id:'6763069304',name:'Avions de Legende'},
+    {id:'6763071567',name:'Voitures de Legende'},{id:'6762077646',name:'Flip Board'},
+    {id:'6762632868',name:'Trains Mythiques'},{id:'6762823383',name:'Chateaux Loire'},
+    {id:'6762598304',name:'Mers & Oceans'},{id:'6762594201',name:'Detroits'},
+    {id:'6762558969',name:'ColorCode Mind'},{id:'6762552826',name:'Lexigo'},
+    {id:'6762542395',name:'Conquetes Sociales'},{id:'6762522136',name:'Dynasties Chinoises'},
+    {id:'6762452564',name:'Dynasties Russes'},{id:'6762370541',name:'Etats-Unis'},
+    {id:'6762091681',name:'Bataille Navale'},{id:'6762098486',name:'Familles Royales'},
+    {id:'6762263227',name:'Leaders Europeens'},{id:'6762346365',name:'Pays UE'},
+    {id:'6762256169',name:'Presidents Americains'},{id:'6762076518',name:'Dames Checkers'},
+    {id:'6761993002',name:'Comedie Francaise'},{id:'6761769529',name:'Institut de France'},
+    {id:'6761324444',name:'Presidents Francais'},{id:'6761709149',name:'Basilique St-Denis'},
+    {id:'6761685637',name:'Arbres de France'},{id:'6761363063',name:'Senat Paris'},
+    {id:'6761656628',name:'Compositeurs'},{id:'6761374601',name:'Marechaux Napoleon'},
+    {id:'6761322546',name:'Rois de France'},{id:'6761361079',name:'Assemblee Paris'},
+    {id:'6761335268',name:'Pantheon Paris'},{id:'1483084001',name:'Belote Calc'},
+    {id:'6760751055',name:'Cimetieres Paris'},{id:'1481989301',name:'Tarots Calc'},
+    {id:'6761334922',name:'Academie francaise'},{id:'6761293938',name:'Scenes Paris'},
+    {id:'6761271324',name:'MediSafe'},{id:'6760617965',name:'MesRestaurants'},
+    {id:'6760126279',name:'Cave Manager'},{id:'6760890465',name:'Musees Paris'},
+    {id:'6760929391',name:'Theatres Paris'},{id:'6759219383',name:'FreshFood Manager'},
+    {id:'1475884625',name:'Toi ou Moi'},{id:'6761421276',name:'Capitales Europe'},
+    {id:'6767135193',name:'Auteurs de BD'},{id:'6766260978',name:'Histoire Info'},
+    {id:'6766261703',name:'Micro-Info'},{id:'6767492967',name:'Institutions Mondiales'},
+    {id:'6767273597',name:'Machines Leg.'},{id:'6767810270',name:'Iles du Monde'},
+    {id:'6768003416',name:'Explorateurs'},{id:'6768068634',name:'Peintres Celebres'},
+    {id:'6768320574',name:'Legion Honneur'},{id:'6762208827',name:'Dynasties Royales'},
+    {id:'6768574161',name:'Tuiles Numeriques'},{id:'6769310796',name:'App Solitaire'},
+    {id:'6764087562',name:'Aeroports Mythiques'},{id:'6763569148',name:'Nobels de la Paix'},
+    {id:'6763857843',name:'Gratte-Ciels'},
+  ];
+  const ov=document.createElement('div');
+  ov.id='settings-ov';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(13,17,23,.97);z-index:9000;display:flex;flex-direction:column;padding-top:calc(12px + env(safe-area-inset-top));padding-bottom:calc(12px + env(safe-area-inset-bottom))';
+  ov.innerHTML=`
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:0 16px 12px">
+      <div style="font-size:15px;color:var(--gold2);font-weight:bold">Mes Applications</div>
+      <button onclick="document.getElementById('settings-ov').remove()" style="background:none;border:none;font-size:20px;color:var(--muted);cursor:pointer">✕</button>
+    </div>
+    <div id="apps-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:0 12px;overflow-y:auto;flex:1"></div>`;
+  document.body.appendChild(ov);
+  const grid=document.getElementById('apps-grid');
+  APPS.forEach(app=>{
+    const item=document.createElement('div');
+    item.style.cssText='display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer';
+    item.onclick=()=>window.open('https://apps.apple.com/app/id'+app.id,'_blank');
+    const img=document.createElement('img');
+    img.style.cssText='width:56px;height:56px;border-radius:13px;background:var(--card)';
+    const cbName='cb'+app.id;
+    window[cbName]=function(d){if(d.results&&d.results[0])img.src=d.results[0].artworkUrl60;};
+    const s=document.createElement('script');
+    s.src='https://itunes.apple.com/lookup?id='+app.id+'&callback='+cbName;
+    document.body.appendChild(s);
+    const lbl=document.createElement('div');
+    lbl.textContent=app.name;
+    lbl.style.cssText='font-size:9px;color:var(--muted);text-align:center;line-height:1.2;max-width:64px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical';
+    item.appendChild(img);item.appendChild(lbl);
+    grid.appendChild(item);
+  });
+}
+
+window.addEventListener('DOMContentLoaded',init);
+</script>
+</body>
+</html>
